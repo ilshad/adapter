@@ -26,7 +26,7 @@
   (get-in @registry [spec (mapv find-spec args)]))
 
 (defn- not-found [spec args]
-  (throw (Exception. (str "Adapter not found: " args "->[" spec "]"))))
+  (throw (ex-info (str "Adapter not found") {:from (vec args) :to spec})))
 
 (defn- find-adapter [spec args]
   (or (empty-adapter spec args)

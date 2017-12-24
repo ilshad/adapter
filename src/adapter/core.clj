@@ -7,8 +7,8 @@
 
 (defn register [& fns]
   (doseq [func fns
-          :let [spec (-> func s/get-spec s/form)]
-          :when (= (first spec) 'clojure.spec.alpha/fspec)
+          :let [[sym & _ :as spec] (-> func s/get-spec s/form)]
+          :when (= sym 'clojure.spec.alpha/fspec)
           :let [[_ _ [_ & args] _ ret _ _] spec]]
     (swap! registry assoc-in [ret (vec (map second (partition 2 args)))]
       func)))

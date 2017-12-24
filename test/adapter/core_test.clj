@@ -1,7 +1,7 @@
 (ns adapter.core-test
   (:require [clojure.test :refer :all]
-            [adapter.core :refer :all]
-            [clojure.spec.alpha :as s]))
+            [clojure.spec.alpha :as s]
+            [adapter.core :as adapter]))
 
 (s/def ::person (s/keys :req [::first-name ::last-name ::email]))
 (s/def ::text string?)
@@ -10,21 +10,32 @@
 (s/fdef text->response :args (s/cat :text ::text) :ret ::response)
 
 (defn person->text [person]
-  (str (::first-name person) " " (::last-name person) ", " (::email person)))
+  (str (::first-name person) " "
+       (::last-name  person) ", "
+       (::email      person)))
 
 (defn text->response [text]
-  {:status 200 :body text})
+  {:status  200
+   :body    text})
 
-(register #'person->text #'text->response)
+(def john
+  {::first-name  "John"
+   ::last-name   "Smith"
+   ::email       "user@sample.org"})
 
-(def john {::first-name "John" ::last-name "Smith" ::email "user@sample.org"})
+(use-fixtures :once
+  (fn [tests]
+    (adapter/register #'person->text #'text->response)
+    (tests)))
 
 (deftest empty-adapter-test
-  (is (= (adapt ::person john) john)))
+  (is (= (adapter/adapt ::person john) john)))
 
 (deftest person->text-test
-  (is (= (adapt ::text (with-meta john {::hint ::person}))
+  (is (= (adapter/adapt ::text (with-meta john {::adapter/hint ::person}))
          "John Smith, user@sample.org")))
 
-(comment (deftest person->response-test
-           (is (= (adapt ::response john) {:status 200 :body "John Smith, user@sample.org"}))))
+(comment
+  (deftest person->response-test
+    (is (= (adapter/adapt ::response john)
+           {:status 200 :body "John Smith, user@sample.org"}))))

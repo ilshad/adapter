@@ -6,10 +6,10 @@
 (def registry (atom {}))
 
 (defn register [& fns]
-  (for [func fns
-        :let [spec (-> func s/get-spec s/form)]
-        :when (= (first spec) 'clojure.spec.alpha/fspec)
-        :let [[_ _ [_ & args] _ ret _ _] spec]]
+  (doseq [func fns
+          :let [spec (-> func s/get-spec s/form)]
+          :when (= (first spec) 'clojure.spec.alpha/fspec)
+          :let [[_ _ [_ & args] _ ret _ _] spec]]
     (swap! registry assoc-in [ret (vec (map second (partition 2 args)))]
       func)))
 

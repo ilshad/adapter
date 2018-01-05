@@ -3,73 +3,63 @@
             [clojure.spec.alpha :as s]
             [adapter.core :as adapter]))
 
-(s/def ::contact    (s/keys :req [::email]))
-(s/def ::person     (s/keys :req [::first-name ::last-name ::email]))
-(s/def ::specialist (s/keys :req [::occupation]))
-(s/def ::response   (s/keys :req-un [::status ::body]))
+(s/def ::contact  (s/keys :req [::email ::adress]))
+(s/def ::person   (s/keys :req [::first-name ::last-name]))
+(s/def ::user     (s/keys :reg [::email ::address ::first-name ::last-name]))
+(s/def ::response (s/keys :req-un [::status ::body]))
 
-(s/fdef contact->person
-  :args (s/cat :contact ::contact)
-  :ret ::person)
+(s/fdef contact+person->user
+  :args (s/cat :contact ::contact
+               :person ::person)
+  :ret ::user)
 
-(s/fdef person->response
-  :args (s/cat :person ::person)
+(s/fdef user->response
+  :args (s/cat :user ::user)
   :ret ::response)
 
-(s/fdef person+specialist
-  :args (s/cat :person ::person :specialist ::specialist)
-  :ret ::person)
+(defn contact+person->user [contact person]
+  (merge contact person))
 
-(defn contact->person [contact]
-  (assoc contact
-    ::first-name "First Name"
-    ::last-name "Last Name"))
-
-(defn person->response [person]
+(defn user->response [user]
   {:status 200
-   :body (str (::first-name person) " "
-              (::last-name  person) ", "
-              (::email      person))})
+   :body (str (::first-name user) " "
+              (::last-name  user) ", "
+              (::email      user))})
 
-(defn person+specialist [person specialist]
-  (merge person specialist))
+(def contact {::email "john@sample.org" ::address "NY"})
+(def contact* (with-meta contact {::adapter/hint ::contact}))
 
-(def anonym {::email "anonym@sample.org"})
-(def anonym* (with-meta anonym {::adapter/hint ::contact}))
+(def person {::first-name "John" ::last-name "Smith"})
+(def person* (with-meta person {::adapter/hint ::person}))
+(def person** (assoc person ::adapter/hint ::person))
 
-(def john {::first-name "John" ::last-name "Smith" ::email "john@sample.org"})
-(def john* (with-meta john {::adapter/hint ::person}))
-(def john** (assoc john ::adapter/hint ::person))
+(def user {::first-name "John"
+           ::last-name  "Smith"
+           ::email      "john@sample.org"
+           ::address    "NY"})
 
-(def engineer {::occupation :engineer})
-(def engineer* (with-meta engineer {::adapter/hint ::specialist}))
+(def user* (with-meta user {::adapter/hint ::user}))
 
 (use-fixtures :once
   (fn [tests]
-    (adapter/register #'contact->person
-                      #'person->response
-                      #'person+specialist)
+    (adapter/register #'contact+person->user
+                      #'user->response)
     (tests)))
 
-(deftest empty-adapters
-  (is (= (adapter/adapt ::person john) john)))
+(deftest empty-adapter
+  (is (= (adapter/adapt ::person person*) person*)))
 
-(deftest simple-adapters
-  (is (= (adapter/adapt ::person anonym*)
-         {::email "anonym@sample.org"
-          ::first-name "First Name"
-          ::last-name "Last Name"}))
-  (is (= (adapter/adapt ::response john*)
+(deftest direct-single-adapter
+  (is (= (adapter/adapt ::response user*)
          {:status 200 :body "John Smith, john@sample.org"})))
 
-(deftest multi-adapters
-  (is (= (adapter/adapt ::person john* engineer*)
+(deftest direct-multi-adapters
+  (is (= (adapter/adapt ::user contact* person*)
          {::first-name "John"
           ::last-name "Smith"
           ::email "john@sample.org"
-          ::occupation :engineer})))
+          ::address "NY"})))
 
-(comment
-  (deftest complex-path-adapters
-    (is (= (adapter/adapt ::response john*)
-           {:status 200 :body "John Smith, john@sample.org"}))))
+(deftest transitive-adapter
+  (is (= (adapter/adapt ::response contact* person*)
+         {:status 200 :body "John Smith, john@sample.org"})))

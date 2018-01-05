@@ -3,35 +3,35 @@
 
 (s/def ::hint keyword?)
 
-(def registry (atom {}))
+(defonce registry (atom {}))
 
 (defn register [& fns]
   (doseq [func fns
           :let [[sym & _ :as spec] (-> func s/get-spec s/form)]
           :when (= sym 'clojure.spec.alpha/fspec)
           :let [[_ _ [_ & args] _ ret _ _] spec]]
-    (swap! registry assoc-in [ret (vec (map second (partition 2 args)))]
+    (swap! registry assoc-in [ret (->> args (partition 2) (map second) vec)]
       func)))
 
-(def hint (some-fn ::hint (comp ::hint meta)))
-
 (defn- find-spec [data]
-  (hint data))
+  (let [finder (some-fn ::hint (comp ::hint meta))]
+    (finder data)))
 
-(defn- empty-adapter [spec [arg & args]]
-  (when (and (empty? args) (s/valid? spec arg))
+(defn- ident [return [arg & args]]
+  (when (and (empty? args) (= return arg))
     identity))
 
-(defn- multi-adapter [spec args]
-  (get-in @registry [spec (mapv find-spec args)]))
+(defn- find-direct [return args]
+  (get-in @registry [return args]))
 
-(defn- not-found [spec args]
-  (throw (ex-info "Adapter not found" {:from (vec args) :to spec})))
+(defn- not-found [return args]
+  (throw (ex-info "Adapter not found" {:from (vec args) :to return})))
 
-(defn- find-adapter [spec args]
-  (or (empty-adapter spec args)
-      (multi-adapter spec args)
-      (not-found     spec args)))
+(defn- find-adapter [return args]
+  (or (ident           return args)
+      (find-direct     return args)
+      (not-found       return args)))
 
 (defn adapt [spec & args]
-  (apply (find-adapter spec args) args))
+  (let [adapter (find-adapter spec (map find-spec args))]
+    (apply adapter args)))

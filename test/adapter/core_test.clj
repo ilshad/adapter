@@ -13,12 +13,19 @@
                :person ::person)
   :ret ::user)
 
+(s/fdef person->user
+  :args (s/cat :person ::person)
+  :ret ::user)
+
 (s/fdef user->response
   :args (s/cat :user ::user)
   :ret ::response)
 
 (defn contact+person->user [contact person]
   (merge contact person))
+
+(defn person->user [person]
+  (assoc person ::email "" ::address ""))
 
 (defn user->response [user]
   {:status 200
@@ -43,6 +50,7 @@
 (use-fixtures :once
   (fn [tests]
     (adapter/register #'contact+person->user
+                      #'person->user
                       #'user->response)
     (tests)))
 
@@ -60,6 +68,8 @@
           ::email "john@sample.org"
           ::address "NY"})))
 
-(deftest transitive-adapter
-  (is (= (adapter/adapt ::response contact* person*)
-         {:status 200 :body "John Smith, john@sample.org"})))
+(deftest transitive-adapters
+  (is (= (adapter/adapt ::response person*)
+         {:status 200 :body "John Smith, "}))
+  (comment (is (= (adapter/adapt ::response contact* person*)
+                  {:status 200 :body "John Smith, john@sample.org"}))))
